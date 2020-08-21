@@ -6,7 +6,7 @@ W, H = 1200, 850
 TOTAL_PIXEL_COUNT = W * H
 DELTA_X = DELTA_Y = 0.0030
 ITER_LIMIT = 40
-DELTA_COLOR = 5
+DELTA_COLOR = 255 // ITER_LIMIT
 
 
 def point(surface, pos, color):
@@ -65,6 +65,46 @@ def julia():
     yield surface
 
 
+class Menu:
+
+    TRANSPARENT_COLOR = (255, 0, 0)
+    ITEMS_DATA = [
+        {
+            'action': mandelbrot,
+            'title': 'Фрактал Мандельброта'
+        },
+        {
+            'action': julia,
+            'title': 'Фрактал Жюлиа'
+        }
+    ]
+
+    def __init__(self):
+        self.surface = pg.Surface((W, H))
+        self.surface.set_colorkey(self.TRANSPARENT_COLOR)
+        self.menu_rect = None
+        self.items = None
+        self.show_flag = False
+
+    def redraw_surface(self):
+        if not self.show_flag:
+            self.surface.fill(self.TRANSPARENT_COLOR)
+            return
+
+    def click(self, pos, button):
+        selected_func = None
+        if button == 1:
+            selected_func = mandelbrot()
+        if button == 3:
+            selected_func = julia()
+
+        self.redraw_surface()
+        return selected_func
+
+    def move(self, pos):
+        pass
+
+
 def main():
     # Инициализируем окно
     pg.init()
@@ -74,14 +114,25 @@ def main():
 
     font = pg.font.Font(None, 36)
 
-    fractal_func = mandelbrot()
+    fractal_func = None
     fractal_surface = pg.Surface((W, H))
+
+    menu = Menu()
 
     while True:
         for event in pg.event.get():
             if event.type == pg.QUIT:
                 pg.quit()
                 exit()
+
+            if fractal_func:
+                continue
+
+            if event.type == pg.MOUSEMOTION:
+                menu.move(event.pos)
+
+            if event.type == pg.MOUSEBUTTONDOWN:
+                fractal_func = menu.click(event.pos, event.button)
 
         if fractal_func:
             value = next(fractal_func)
@@ -99,6 +150,7 @@ def main():
                 fractal_func = None
 
         sc.blit(fractal_surface, (0, 0))
+        sc.blit(menu.surface, (0, 0))
         pg.display.update()
 
         clock.tick(25)

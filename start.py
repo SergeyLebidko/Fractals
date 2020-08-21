@@ -112,43 +112,50 @@ class Menu:
         self.show_flag = False
 
     def draw_menu(self, pos):
-        self.surface.fill(self.TRANSPARENT_COLOR)
+        # Если меню еще не отрисовывалось, то готовим данные для отрисовки
+        if not self.show_flag:
+            self.items = []
+            menu_width = menu_height = 0
+            for item_data in self.ITEMS_DATA:
+                text_surface = FONT.render(item_data['text'], 0, (255, 255, 255))
+                text_surface_rect = text_surface.get_rect()
+                self.items.append(
+                    {
+                        'text_surface': text_surface,
+                        'action': item_data['action']
+                    }
+                )
+                menu_width = max(menu_width, text_surface_rect.width + 30)
+                menu_height += text_surface_rect.height + 10
 
-        self.items = []
-        menu_width = menu_height = 0
-        for item_data in self.ITEMS_DATA:
-            text = item_data['text']
-            text_surface = FONT.render(text, 0, (180, 180, 180))
-            text_surface_rect = text_surface.get_rect()
-            action = item_data['action']
-            self.items.append(
-                {
-                    'text_surface': text_surface,
-                    'text': text,
-                    'action': action
-                }
-            )
-            menu_width = max(menu_width, text_surface_rect.width)
-            menu_height += text_surface_rect.height
+            menu_x, menu_y = pos
+            if (menu_x + menu_width) > W:
+                menu_x -= menu_width
+            if (menu_y + menu_height) > H:
+                menu_y -= menu_height
+            self.menu_rect = pg.Rect(menu_x, menu_y, menu_width, menu_height)
 
-        menu_x, menu_y = pos
-        if (menu_x + menu_width) > W:
-            menu_x -= menu_width
-        if (menu_y + menu_height) > H:
-            menu_y -= menu_height
-        self.menu_rect = pg.Rect(menu_x, menu_y, menu_width, menu_height)
+            self.show_flag = True
 
-        pg.draw.rect(self.surface, (50, 50, 50), (menu_x - 15, menu_y - 5, menu_width + 30, menu_height + 10))
-
-        item_x, item_y = menu_x, menu_y
+        item_x, item_y = self.menu_rect.x, self.menu_rect.y
         for item in self.items:
             text_surface = item['text_surface']
             text_surface_rect = text_surface.get_rect()
-            self.surface.blit(text_surface, (item_x, item_y))
-            item['item_rect'] = pg.Rect(item_x, item_y, menu_width, text_surface_rect.height)
-            item_y += text_surface_rect.height
 
-        self.show_flag = True
+            item_rect = item.setdefault(
+                'item_rect',
+                pg.Rect(item_x, item_y, self.menu_rect.width, text_surface_rect.height + 10)
+            )
+
+            if item_rect.collidepoint(pos):
+                color = (95, 95, 110)
+            else:
+                color = (50, 50, 50)
+
+            pg.draw.rect(self.surface, color, item_rect)
+            self.surface.blit(text_surface, (item_x + 15, item_y + 5))
+
+            item_y += (text_surface_rect.height + 10)
 
     def clear_menu(self):
         self.surface.fill(self.TRANSPARENT_COLOR)
@@ -157,27 +164,27 @@ class Menu:
         self.show_flag = False
 
     def click(self, pos, button):
-        # Если меню не отображалось и пользователь нажал правую кнопку мыши - рисуем меню
-        if not self.show_flag and button == pg.BUTTON_RIGHT:
-            self.draw_menu(pos)
+        if not self.show_flag:
+            if button == pg.BUTTON_RIGHT:
+                self.draw_menu(pos)
             return None
-
-        # Если меню отображалось и пользователь нажал кнопку мыши, то выбираем действие
-        if self.show_flag:
-            selected_func = None
-            for item in self.items:
-                item_rect = item['item_rect']
-                if item_rect.collidepoint(pos):
-                    selected_func = item['action']()
-                    break
+        else:
+            selected_action = None
+            if self.menu_rect.collidepoint(pos):
+                for item in self.items:
+                    item_rect = item['item_rect']
+                    if item_rect.collidepoint(pos):
+                        selected_action = item['action']()
 
             self.clear_menu()
-            return selected_func
-
-        return None
+            if button == pg.BUTTON_RIGHT:
+                self.draw_menu(pos)
+            return selected_action
 
     def move(self, pos):
-        pass
+        if not self.show_flag:
+            return
+        self.draw_menu(pos)
 
 
 def main():

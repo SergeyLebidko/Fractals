@@ -5,7 +5,7 @@ import pygame as pg
 # Основные параметры работы
 W, H = 1200, 850
 TOTAL_PIXEL_COUNT = W * H
-DELTA_PIXEL = 0.0030
+DEFAULT_SCOPE = 0, 0, 0.003
 ITER_LIMIT = 40
 DELTA_COLOR = 255 // ITER_LIMIT
 
@@ -39,7 +39,7 @@ def render_msg(msg, surface):
     return surface
 
 
-def mandelbrot():
+def mandelbrot(x0, y0, delta_pixel):
     count_limit = 0
     current_pixel_count = 0
     result_surface = pg.Surface((W, H))
@@ -47,7 +47,7 @@ def mandelbrot():
 
     for a in range(W):
         for b in range(H):
-            c = complex((a - W // 3 * 2) * DELTA_PIXEL, (b - H // 2) * DELTA_PIXEL)
+            c = complex(x0 + (a - W // 3 * 2) * delta_pixel, y0 - (b - H // 2) * delta_pixel)
             z = complex(0, 0)
             k = get_iter_count(z, c)
             color = tuple([255 - DELTA_COLOR * k for _ in range(3)])
@@ -65,7 +65,7 @@ def mandelbrot():
     yield result_surface
 
 
-def julia():
+def julia(x0, y0, delta_pixel):
     count_limit = 0
     current_pixel_count = 0
     surface = pg.Surface((W, H))
@@ -74,7 +74,7 @@ def julia():
     c = complex(0.36, 0.36)
     for a in range(W):
         for b in range(H):
-            z = complex((a - W // 2) * DELTA_PIXEL, (b - H // 2) * DELTA_PIXEL)
+            z = complex(x0 + (a - W // 2) * delta_pixel, y0 - (b - H // 2) * delta_pixel)
             k = get_iter_count(z, c)
             color = tuple([255 - DELTA_COLOR * k for _ in range(3)])
             point(surface, (a, b), color)
@@ -94,11 +94,11 @@ def julia():
 FRACTAL_DESCRIPTIONS = [
     {
         'action': mandelbrot,
-        'text': 'Фрактал Мандельброта'
+        'text': 'Фрактал Мандельброта',
     },
     {
         'action': julia,
-        'text': 'Фрактал Жюлиа'
+        'text': 'Фрактал Жюлиа',
     }
 ]
 
@@ -182,7 +182,8 @@ class Menu:
 
 def main():
     selected_fractal = random.choice(FRACTAL_DESCRIPTIONS)
-    fractal_func = selected_fractal['action']()
+    fractal_func = selected_fractal['action'](*DEFAULT_SCOPE)
+    scopes = [DEFAULT_SCOPE]
     fractal_surface = pg.Surface((W, H))
     menu = Menu()
 
@@ -200,9 +201,24 @@ def main():
                 menu.move(event.pos)
 
             if event.type == pg.MOUSEBUTTONDOWN:
-                selected_fractal = menu.click(event.pos, event.button)
-                if selected_fractal:
-                    fractal_func = selected_fractal['action']()
+                if event.button in [pg.BUTTON_LEFT, pg.BUTTON_RIGHT, pg.BUTTON_MIDDLE]:
+                    selected_fractal = menu.click(event.pos, event.button)
+                    if selected_fractal:
+                        fractal_func = selected_fractal['action'](*DEFAULT_SCOPE)
+
+                elif event.button == pg.BUTTON_WHEELUP:
+                    x0, y0, delta_pixel = scopes[-1]
+                    pos_x, pos_y = event.pos
+                    x0, y0 = x0 + (pos_x - (W // 2)) * delta_pixel, y0 - (pos_y - (H // 2)) * delta_pixel
+                    delta_pixel /= 2
+                    scopes.append((x0, y0, delta_pixel))
+                    fractal_func = selected_fractal['action'](*scopes[-1])
+
+                elif event.button == pg.BUTTON_WHEELDOWN:
+                    if len(scopes) == 1:
+                        continue
+                    scopes.pop()
+                    fractal_func = selected_fractal['action'](*scopes[-1])
 
         if fractal_func:
             try:

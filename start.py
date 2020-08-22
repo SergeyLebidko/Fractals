@@ -1,19 +1,21 @@
 import time
+import random
 import pygame as pg
 
 # Основные параметры работы
 W, H = 1200, 850
 TOTAL_PIXEL_COUNT = W * H
-DELTA_X = DELTA_Y = 0.0030
+DELTA_PIXEL = 0.0030
 ITER_LIMIT = 40
 DELTA_COLOR = 255 // ITER_LIMIT
+
 
 # Инициализируем окно
 pg.init()
 SC = pg.display.set_mode((W, H))
 pg.display.set_caption('Fractals')
-CLOCK = pg.time.Clock()
 
+CLOCK = pg.time.Clock()
 FONT = pg.font.SysFont('Arial', 28)
 
 
@@ -45,7 +47,7 @@ def mandelbrot():
 
     for a in range(W):
         for b in range(H):
-            c = complex((a - W // 3 * 2) * DELTA_X, (b - H // 2) * DELTA_Y)
+            c = complex((a - W // 3 * 2) * DELTA_PIXEL, (b - H // 2) * DELTA_PIXEL)
             z = complex(0, 0)
             k = get_iter_count(z, c)
             color = tuple([255 - DELTA_COLOR * k for _ in range(3)])
@@ -72,7 +74,7 @@ def julia():
     c = complex(0.36, 0.36)
     for a in range(W):
         for b in range(H):
-            z = complex((a - W // 2) * DELTA_X, (b - H // 2) * DELTA_Y)
+            z = complex((a - W // 2) * DELTA_PIXEL, (b - H // 2) * DELTA_PIXEL)
             k = get_iter_count(z, c)
             color = tuple([255 - DELTA_COLOR * k for _ in range(3)])
             point(surface, (a, b), color)
@@ -89,97 +91,88 @@ def julia():
     yield surface
 
 
-class Menu:
+FRACTAL_DESCRIPTIONS = [
+    {
+        'action': mandelbrot,
+        'text': 'Фрактал Мандельброта'
+    },
+    {
+        'action': julia,
+        'text': 'Фрактал Жюлиа'
+    }
+]
 
+
+class Menu:
     TRANSPARENT_COLOR = (255, 0, 0)
-    ITEMS_DATA = [
-        {
-            'action': mandelbrot,
-            'text': 'Фрактал Мандельброта'
-        },
-        {
-            'action': julia,
-            'text': 'Фрактал Жюлиа'
-        }
-    ]
 
     def __init__(self):
         self.surface = pg.Surface((W, H))
         self.surface.set_colorkey(self.TRANSPARENT_COLOR)
         self.surface.fill(self.TRANSPARENT_COLOR)
+
         self.menu_rect = None
-        self.items = None
         self.show_flag = False
 
-    def draw_menu(self, pos):
-        # Если меню еще не отрисовывалось, то готовим данные для отрисовки
-        if not self.show_flag:
-            self.items = []
-            menu_width = menu_height = 0
-            for item_data in self.ITEMS_DATA:
-                text_surface = FONT.render(item_data['text'], 0, (255, 255, 255))
-                text_surface_rect = text_surface.get_rect()
-                self.items.append(
-                    {
-                        'text_surface': text_surface,
-                        'action': item_data['action']
-                    }
-                )
-                menu_width = max(menu_width, text_surface_rect.width + 30)
-                menu_height += text_surface_rect.height + 10
+        self.items = []
+        self.menu_width = self.menu_height = 0
+        for description in FRACTAL_DESCRIPTIONS:
+            text_surface = FONT.render(description['text'], 0, (255, 255, 255))
+            self.items.append(
+                {
+                    'text_surface': text_surface,
+                    'description': description
+                }
+            )
+            text_surface_rect = text_surface.get_rect()
+            self.menu_width = max(self.menu_width, text_surface_rect.width + 30)
+            self.menu_height += text_surface_rect.height + 10
 
+    def draw_menu(self, pos):
+        # Если меню еще не отрисовывалось, то готовим данные для отрисовки его на новой позиции
+        if not self.show_flag:
             menu_x, menu_y = pos
-            if (menu_x + menu_width) > W:
-                menu_x -= menu_width
-            if (menu_y + menu_height) > H:
-                menu_y -= menu_height
-            self.menu_rect = pg.Rect(menu_x, menu_y, menu_width, menu_height)
+            if (menu_x + self.menu_width) > W:
+                menu_x -= self.menu_width
+            if (menu_y + self.menu_height) > H:
+                menu_y -= self.menu_height
+            self.menu_rect = pg.Rect(menu_x, menu_y, self.menu_width, self.menu_height)
+
+            item_x, item_y = menu_x, menu_y
+            for item in self.items:
+                text_surface = item['text_surface']
+                text_surface_rect = text_surface.get_rect()
+                item['item_rect'] = pg.Rect(item_x, item_y, self.menu_width, text_surface_rect.height + 10)
+                item_y += (text_surface_rect.height + 10)
 
             self.show_flag = True
 
-        item_x, item_y = self.menu_rect.x, self.menu_rect.y
         for item in self.items:
+            item_rect = item['item_rect']
             text_surface = item['text_surface']
-            text_surface_rect = text_surface.get_rect()
-
-            item_rect = item.setdefault(
-                'item_rect',
-                pg.Rect(item_x, item_y, self.menu_rect.width, text_surface_rect.height + 10)
-            )
-
             if item_rect.collidepoint(pos):
-                color = (95, 95, 110)
+                color = (95, 95, 105)
             else:
                 color = (50, 50, 50)
-
             pg.draw.rect(self.surface, color, item_rect)
-            self.surface.blit(text_surface, (item_x + 15, item_y + 5))
-
-            item_y += (text_surface_rect.height + 10)
-
-    def clear_menu(self):
-        self.surface.fill(self.TRANSPARENT_COLOR)
-        self.menu_rect = None
-        self.items = None
-        self.show_flag = False
+            self.surface.blit(text_surface, (item_rect.x + 15, item_rect.y + 5))
 
     def click(self, pos, button):
-        if not self.show_flag:
-            if button == pg.BUTTON_RIGHT:
-                self.draw_menu(pos)
-            return None
-        else:
-            selected_action = None
-            if self.menu_rect.collidepoint(pos):
-                for item in self.items:
-                    item_rect = item['item_rect']
-                    if item_rect.collidepoint(pos):
-                        selected_action = item['action']()
+        selected_item = None
 
-            self.clear_menu()
-            if button == pg.BUTTON_RIGHT:
-                self.draw_menu(pos)
-            return selected_action
+        if self.show_flag:
+            for item in self.items:
+                item_rect = item['item_rect']
+                if item_rect.collidepoint(pos):
+                    selected_item = item['description']
+
+        self.surface.fill(self.TRANSPARENT_COLOR)
+        self.show_flag = False
+
+        if button == pg.BUTTON_RIGHT:
+            self.draw_menu(pos)
+
+        return selected_item
 
     def move(self, pos):
         if not self.show_flag:
@@ -188,7 +181,8 @@ class Menu:
 
 
 def main():
-    fractal_func = mandelbrot()
+    selected_fractal = random.choice(FRACTAL_DESCRIPTIONS)
+    fractal_func = selected_fractal['action']()
     fractal_surface = pg.Surface((W, H))
     menu = Menu()
 
@@ -206,7 +200,9 @@ def main():
                 menu.move(event.pos)
 
             if event.type == pg.MOUSEBUTTONDOWN:
-                fractal_func = menu.click(event.pos, event.button)
+                selected_fractal = menu.click(event.pos, event.button)
+                if selected_fractal:
+                    fractal_func = selected_fractal['action']()
 
         if fractal_func:
             try:

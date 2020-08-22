@@ -9,7 +9,6 @@ DEFAULT_SCOPE = 0, 0, 0.003
 ITER_LIMIT = 40
 DELTA_COLOR = 255 // ITER_LIMIT
 
-
 # Инициализируем окно
 pg.init()
 SC = pg.display.set_mode((W, H))
@@ -183,6 +182,7 @@ class Menu:
 def main():
     selected_fractal = random.choice(FRACTAL_DESCRIPTIONS)
     fractal_func = selected_fractal['action'](*DEFAULT_SCOPE)
+    pg.display.set_caption(f'Fractals. {selected_fractal["text"]}')
     scopes = [DEFAULT_SCOPE]
     fractal_surface = pg.Surface((W, H))
     menu = Menu()
@@ -205,20 +205,28 @@ def main():
                     selected_fractal = menu.click(event.pos, event.button)
                     if selected_fractal:
                         fractal_func = selected_fractal['action'](*DEFAULT_SCOPE)
+                        pg.display.set_caption(f'Fractals. {selected_fractal["text"]}')
 
                 elif event.button == pg.BUTTON_WHEELUP:
+                    if len(scopes) == 4:
+                        continue
                     x0, y0, delta_pixel = scopes[-1]
                     pos_x, pos_y = event.pos
                     x0, y0 = x0 + (pos_x - (W // 2)) * delta_pixel, y0 - (pos_y - (H // 2)) * delta_pixel
                     delta_pixel /= 2
                     scopes.append((x0, y0, delta_pixel))
                     fractal_func = selected_fractal['action'](*scopes[-1])
+                    pg.display.set_caption(f'Fractals. {selected_fractal["text"]} {4 ** (len(scopes) - 1)}X')
 
                 elif event.button == pg.BUTTON_WHEELDOWN:
                     if len(scopes) == 1:
                         continue
                     scopes.pop()
                     fractal_func = selected_fractal['action'](*scopes[-1])
+                    if len(scopes) > 1:
+                        pg.display.set_caption(f'Fractals. {selected_fractal["text"]} {4 ** (len(scopes) - 1)}X')
+                    else:
+                        pg.display.set_caption(f'Fractals. {selected_fractal["text"]}')
 
         if fractal_func:
             try:
